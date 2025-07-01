@@ -43,7 +43,7 @@ class LarvaeLog(Base):
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     timestamp = Column(DateTime(timezone=True), server_default=func.now())
-    user = Column(String(100), nullable=False)
+    username = Column(String(100), nullable=False)
     days_of_age = Column(Integer, nullable=False)
     larva_weight = Column(Integer, nullable=False)
     larva_pct = Column(Integer, nullable=False)
@@ -51,7 +51,7 @@ class LarvaeLog(Base):
     lb_feed = Column(Float, nullable=False)
     lb_water = Column(Float, nullable=False)
     screen_refeed = Column(Boolean, default=False)
-    tub_color = Column(String(50))
+    row_number = Column(String(50))
     notes = Column(Text)
     larvae_count = Column(Integer)
     feed_per_larvae = Column(Float)
@@ -101,7 +101,7 @@ async def create_log(data: Dict[str, Any]):
     db = next(get_db())
     
     # Validate required fields
-    required_fields = ["user", "days_of_age", "larva_weight", "larva_pct", 
+    required_fields = ["username", "days_of_age", "larva_weight", "larva_pct", 
                       "lb_larvae", "lb_feed", "lb_water"]
     
     for field in required_fields:
@@ -123,7 +123,7 @@ async def create_log(data: Dict[str, Any]):
         
         # Create log entry
         log = LarvaeLog(
-            user=data["user"],
+            username=data["username"],
             days_of_age=int(data["days_of_age"]),
             larva_weight=int(larva_weight),
             larva_pct=int(larva_pct),
@@ -131,7 +131,7 @@ async def create_log(data: Dict[str, Any]):
             lb_feed=lb_feed,
             lb_water=lb_water,
             screen_refeed=data.get("screen_refeed", False),
-            tub_color=data.get("tub_color"),
+            row_number=data.get("row_number"),  # FIXED: Changed from "tub_color"
             notes=data.get("notes"),
             larvae_count=larvae_count,
             feed_per_larvae=feed_per_larvae,
@@ -145,7 +145,7 @@ async def create_log(data: Dict[str, Any]):
         return {
             "id": str(log.id),
             "timestamp": log.timestamp.isoformat(),
-            "user": log.user,
+            "username": log.username,
             "days_of_age": log.days_of_age,
             "larva_weight": log.larva_weight,
             "larva_pct": log.larva_pct,
@@ -153,7 +153,7 @@ async def create_log(data: Dict[str, Any]):
             "lb_feed": log.lb_feed,
             "lb_water": log.lb_water,
             "screen_refeed": log.screen_refeed,
-            "tub_color": log.tub_color,
+            "row_number": log.row_number,
             "notes": log.notes,
             "larvae_count": log.larvae_count,
             "feed_per_larvae": log.feed_per_larvae,
@@ -170,21 +170,21 @@ async def create_log(data: Dict[str, Any]):
 async def get_logs(
     skip: int = 0,
     limit: int = 100,
-    user: Optional[str] = None
+    username: Optional[str] = None  # FIXED: Changed from user
 ):
     db = next(get_db())
     
     query = db.query(LarvaeLog)
     
-    if user:
-        query = query.filter(LarvaeLog.user == user)
+    if username:  # FIXED: Changed from user
+        query = query.filter(LarvaeLog.username == username)  # FIXED: Changed from LarvaeLog.user == user
     
     logs = query.order_by(LarvaeLog.timestamp.desc()).offset(skip).limit(limit).all()
     
     return [{
         "id": str(log.id),
         "timestamp": log.timestamp.isoformat(),
-        "user": log.user,
+        "username": log.username,
         "days_of_age": log.days_of_age,
         "larva_weight": log.larva_weight,
         "larva_pct": log.larva_pct,
@@ -192,7 +192,7 @@ async def get_logs(
         "lb_feed": log.lb_feed,
         "lb_water": log.lb_water,
         "screen_refeed": log.screen_refeed,
-        "tub_color": log.tub_color,
+        "row_number": log.row_number,
         "notes": log.notes,
         "larvae_count": log.larvae_count,
         "feed_per_larvae": log.feed_per_larvae,
@@ -212,7 +212,7 @@ async def get_log(log_id: str):
         return {
             "id": str(log.id),
             "timestamp": log.timestamp.isoformat(),
-            "user": log.user,
+            "username": log.username,
             "days_of_age": log.days_of_age,
             "larva_weight": log.larva_weight,
             "larva_pct": log.larva_pct,
@@ -220,7 +220,7 @@ async def get_log(log_id: str):
             "lb_feed": log.lb_feed,
             "lb_water": log.lb_water,
             "screen_refeed": log.screen_refeed,
-            "tub_color": log.tub_color,
+            "row_number": log.row_number,
             "notes": log.notes,
             "larvae_count": log.larvae_count,
             "feed_per_larvae": log.feed_per_larvae,
