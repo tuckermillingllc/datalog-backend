@@ -21,3 +21,13 @@ def read_logs(db: Session = Depends(get_db)):
 @router.post("/", response_model=schemas.Log)
 def create_log(log: schemas.LogCreate, db: Session = Depends(get_db)):
     return crud.create_log(db, log)
+
+@router.delete("/logs/{log_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_log(log_id: int, db: Session = Depends(get_db)):
+    log = db.query(Log).filter(Log.id == log_id).first()
+    if not log:
+        raise HTTPException(status_code=404, detail="Log not found")
+    
+    db.delete(log)
+    db.commit()
+    return
