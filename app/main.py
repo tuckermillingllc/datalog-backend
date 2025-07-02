@@ -228,3 +228,22 @@ async def get_log(log_id: str):
         }
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid UUID format")
+
+# Delete a log by ID
+@app.delete("/api/logs/{log_id}", status_code=204)
+async def delete_log(log_id: str):
+    db = next(get_db())
+    
+    try:
+        log = db.query(LarvaeLog).filter(LarvaeLog.id == uuid.UUID(log_id)).first()
+        if not log:
+            raise HTTPException(status_code=404, detail="Log not found")
+
+        db.delete(log)
+        db.commit()
+        return  # 204 No Content
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid UUID format")
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error deleting log: {str(e)}")
