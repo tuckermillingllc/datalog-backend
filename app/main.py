@@ -63,6 +63,8 @@ class LarvaeLog(Base):
     larvae_count = Column(Integer)
     feed_per_larvae = Column(Float)
     water_feed_ratio = Column(Float)
+    post_feed_condition = Column(String(50), nullable=True)
+
 
 class ContainerLogPrepupae(Base):
     __tablename__ = "container_logs_prepupae"
