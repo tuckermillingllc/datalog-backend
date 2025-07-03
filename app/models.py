@@ -54,4 +54,18 @@ class MicrowaveLog(Base):
     yield_percentage = Column(DECIMAL(5, 2), nullable=True)
     notes = Column(Text)
 
-# Your existing Log model is already defined above
+class LarvaeLog(Base):
+    __tablename__ = "larvae_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String(100), nullable=False)
+    datetime = Column(DateTime, default=func.now())
+    days_of_age = Column(Integer, nullable=True)
+    larva_weight = Column(DECIMAL(6, 2), nullable=True)
+    larva_pct = Column(DECIMAL(5, 2), nullable=True)
+    lb_larvae = Column(DECIMAL(6, 2), nullable=True)
+    lb_feed = Column(DECIMAL(6, 2), nullable=True)
+    lb_water = Column(DECIMAL(6, 2), nullable=True)
+    row_number = Column(String(50), nullable=True)
+    notes = Column(Text, nullable=True)
+    result_notes = Column(String(100), nullable=True)
