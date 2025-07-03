@@ -133,7 +133,7 @@ async def root():
         "version": "1.0.0",
         "endpoints": {
             "health": "/health",
-            "larvae_logs": "GET/POST /api/logs",
+            "larvae_logs": "GET/POST/PUT /api/logs",
             "container_prepupae": "GET/POST /api/container-logs/prepupae",
             "container_neonates": "GET/POST /api/container-logs/neonates",
             "microwave_logs": "GET/POST/PUT /api/microwave-logs",
@@ -156,28 +156,24 @@ async def api_health():
 # Create larvae log
 @app.post("/api/logs")
 async def create_log(data: Dict[str, Any], db: Session = Depends(get_db)):
-    # Validate required fields
     required_fields = ["username", "days_of_age", "larva_weight", "larva_pct", 
-                      "lb_larvae", "lb_feed", "lb_water"]
-    
+                       "lb_larvae", "lb_feed", "lb_water"]
+
     for field in required_fields:
         if field not in data:
             raise HTTPException(status_code=400, detail=f"Missing required field: {field}")
-    
+
     try:
-        # Extract values
         larva_weight = float(data["larva_weight"])
         larva_pct = float(data["larva_pct"])
         lb_larvae = float(data["lb_larvae"])
         lb_feed = float(data["lb_feed"])
         lb_water = float(data["lb_water"])
-        
-        # Calculate derived fields
+
         larvae_count = int(((lb_larvae * (larva_pct / 100)) * 453592) / larva_weight) if larva_weight > 0 else 0
         feed_per_larvae = round((lb_feed * 453592) / larvae_count, 1) if larvae_count > 0 else 0
         water_feed_ratio = round(lb_water / lb_feed, 1) if lb_feed > 0 else 0
-        
-        # Create log entry
+
         log = LarvaeLog(
             username=data["username"],
             days_of_age=int(data["days_of_age"]),
@@ -189,15 +185,16 @@ async def create_log(data: Dict[str, Any], db: Session = Depends(get_db)):
             screen_refeed=data.get("screen_refeed", False),
             row_number=data.get("row_number"),
             notes=data.get("notes"),
+            post_feed_condition=data.get("post_feed_condition"),  # <-- NEW
             larvae_count=larvae_count,
             feed_per_larvae=feed_per_larvae,
             water_feed_ratio=water_feed_ratio
         )
-        
+
         db.add(log)
         db.commit()
         db.refresh(log)
-        
+
         return {
             "id": str(log.id),
             "timestamp": log.timestamp.isoformat(),
@@ -211,6 +208,7 @@ async def create_log(data: Dict[str, Any], db: Session = Depends(get_db)):
             "screen_refeed": log.screen_refeed,
             "row_number": log.row_number,
             "notes": log.notes,
+            "post_feed_condition": log.post_feed_condition,  # <-- NEW
             "larvae_count": log.larvae_count,
             "feed_per_larvae": log.feed_per_larvae,
             "water_feed_ratio": log.water_feed_ratio
@@ -221,6 +219,7 @@ async def create_log(data: Dict[str, Any], db: Session = Depends(get_db)):
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Error creating log: {str(e)}")
 
+
 # Get larvae logs
 @app.get("/api/logs")
 async def get_logs(
@@ -230,12 +229,12 @@ async def get_logs(
     db: Session = Depends(get_db)
 ):
     query = db.query(LarvaeLog)
-    
+
     if username:
         query = query.filter(LarvaeLog.username == username)
-    
+
     logs = query.order_by(LarvaeLog.timestamp.desc()).offset(skip).limit(limit).all()
-    
+
     return [{
         "id": str(log.id),
         "timestamp": log.timestamp.isoformat(),
@@ -249,10 +248,12 @@ async def get_logs(
         "screen_refeed": log.screen_refeed,
         "row_number": log.row_number,
         "notes": log.notes,
+        "post_feed_condition": log.post_feed_condition,  # <-- NEW
         "larvae_count": log.larvae_count,
         "feed_per_larvae": log.feed_per_larvae,
         "water_feed_ratio": log.water_feed_ratio
     } for log in logs]
+
 
 # Get single larvae log by ID
 @app.get("/api/logs/{log_id}")
@@ -261,7 +262,7 @@ async def get_log(log_id: str, db: Session = Depends(get_db)):
         log = db.query(LarvaeLog).filter(LarvaeLog.id == uuid.UUID(log_id)).first()
         if not log:
             raise HTTPException(status_code=404, detail="Log not found")
-        
+
         return {
             "id": str(log.id),
             "timestamp": log.timestamp.isoformat(),
@@ -275,12 +276,14 @@ async def get_log(log_id: str, db: Session = Depends(get_db)):
             "screen_refeed": log.screen_refeed,
             "row_number": log.row_number,
             "notes": log.notes,
+            "post_feed_condition": log.post_feed_condition,  # <-- NEW
             "larvae_count": log.larvae_count,
             "feed_per_larvae": log.feed_per_larvae,
             "water_feed_ratio": log.water_feed_ratio
         }
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid UUID format")
+
 
 # Delete larvae log by ID
 @app.delete("/api/logs/{log_id}", status_code=204)
@@ -292,7 +295,7 @@ async def delete_log(log_id: str, db: Session = Depends(get_db)):
 
         db.delete(log)
         db.commit()
-        return  # 204 No Content
+        return
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid UUID format")
     except Exception as e:
