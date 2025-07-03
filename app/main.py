@@ -284,7 +284,70 @@ async def get_log(log_id: str, db: Session = Depends(get_db)):
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid UUID format")
 
+@app.put("/api/logs/{log_id}")
+async def update_log(log_id: str, data: Dict[str, Any], db: Session = Depends(get_db)):
+    try:
+        log = db.query(LarvaeLog).filter(LarvaeLog.id == uuid.UUID(log_id)).first()
+        if not log:
+            raise HTTPException(status_code=404, detail="Log not found")
 
+        # Update fields if provided
+        for field in [
+            "username", "days_of_age", "larva_weight", "larva_pct",
+            "lb_larvae", "lb_feed", "lb_water", "screen_refeed",
+            "row_number", "notes", "post_feed_condition"
+        ]:
+            if field in data:
+                setattr(log, field, data[field])
+
+        # Recalculate derived values if needed
+        if "larva_weight" in data and "larva_pct" in data and "lb_larvae" in data:
+            try:
+                larva_weight = float(data["larva_weight"])
+                larva_pct = float(data["larva_pct"])
+                lb_larvae = float(data["lb_larvae"])
+
+                larvae_count = int(((lb_larvae * (larva_pct / 100)) * 453592) / larva_weight) if larva_weight > 0 else 0
+                log.larvae_count = larvae_count
+
+                log.feed_per_larvae = round((float(log.lb_feed) * 453592) / larvae_count, 1) if larvae_count > 0 else 0
+            except:
+                pass  # Ignore if something's invalid
+
+        if "lb_feed" in data and "lb_water" in data:
+            try:
+                log.water_feed_ratio = round(float(log.lb_water) / float(log.lb_feed), 1) if float(log.lb_feed) > 0 else 0
+            except:
+                pass
+
+        db.commit()
+        db.refresh(log)
+
+        return {
+            "id": str(log.id),
+            "timestamp": log.timestamp.isoformat(),
+            "username": log.username,
+            "days_of_age": log.days_of_age,
+            "larva_weight": log.larva_weight,
+            "larva_pct": log.larva_pct,
+            "lb_larvae": log.lb_larvae,
+            "lb_feed": log.lb_feed,
+            "lb_water": log.lb_water,
+            "screen_refeed": log.screen_refeed,
+            "row_number": log.row_number,
+            "notes": log.notes,
+            "post_feed_condition": log.post_feed_condition,
+            "larvae_count": log.larvae_count,
+            "feed_per_larvae": log.feed_per_larvae,
+            "water_feed_ratio": log.water_feed_ratio
+        }
+
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid UUID format")
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error updating log: {str(e)}")
+    
 # Delete larvae log by ID
 @app.delete("/api/logs/{log_id}", status_code=204)
 async def delete_log(log_id: str, db: Session = Depends(get_db)):
